@@ -13,8 +13,7 @@ NOTE... Deletion is very buggy 😔.
 
 The node code an the tree is under `RBTree/tree.hpp`. Unit tests are under `RBTree/main.cpp`
 
-To run the code use the `g++` compiler while inside the `RBTree` directory, type if you are on Windows:
-**Just 
+To run the code use the `g++` compiler while inside the `RBTree` directory, type if you are on Windows just type:
 ```
 g++ main.cpp & a.exe
 ```
