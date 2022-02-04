@@ -17,5 +17,3 @@ To run the code use the `g++` compiler while inside the `RBTree` directory, type
 ```
 g++ main.cpp & a.exe
 ```
-
-If you are using Linux, then you know how to compile and run a good ol' C++ file.
