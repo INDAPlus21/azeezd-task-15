@@ -1,533 +1,696 @@
 #pragma once
-#include <algorithm>
 #include <iostream>
+#include <vector>
 
+// ANSI Coloring, used for fancy print
 #define ANSI_RED_TEXT "\033[31;1m"
 #define ANSI_BLACK_TEXT "\033[37;1m"
 #define ANSI_RESET "\033[0m"
 
-template <typename T>
+/**
+ * @brief Node class, holds a integer value
+ * 
+ */
 class Node
 {
 public:
-    T data;
-    Node *left, *right, *parent;
+    int data;
+    Node *parent, *right, *left;
     bool black;
 
-    Node(T val, struct Node *parent = nullptr)
+    /**
+     * @brief Construct a new Node using the given value
+     * 
+     * @param value Value to store in the node
+     */
+    Node(int value)
     {
-        this->data = val;
-        this->left = right = parent = nullptr;
-        this->black = false;
+        data = value;
+        parent = nullptr;
+        right = nullptr;
+        left = nullptr;
+        black = false;
     }
 
-    Node *grandparent()
+    /**
+     * @brief Returns true if this current node is black according to the Red Black Tree rules. Handles null
+     * 
+     * @return true Is black
+     * @return false Is red
+     */
+    bool isBlack()
     {
-        if (this->parent == nullptr)
-        {
+        if (this == nullptr)
+            return true;
+        return this->black;
+    }
+
+    /**
+     * @brief Returns the grandparent of this node. 
+     * 
+     * @return Node* Grandparent of this node. nullptr if nonexistent
+     */
+    Node* grandparent()
+    {
+        if (this == nullptr || this->parent == nullptr)
             return nullptr;
-        }
+
         return this->parent->parent;
     }
 
-    void setLeft(struct Node *left)
-    {
-        left->parent = this;
-        this->left = left;
+    /**
+     * @brief Returns true if this node is a left child relatively to its parent. Does not handle null
+     * 
+     * @return true Is a left child
+     * @return false Is a right child
+     */
+    bool isLeftChild()
+    {   
+        return this->parent->left == this;
     }
 
-    void setRight(Node *right)
+    /**
+     * @brief Returns this nodes sibling if it exists
+     * 
+     * @return Node* This node's sibling. nullptr if it does not exists
+     */
+    Node* sibling()
     {
-        right->parent = this;
-        this->right = right;
+        if (this == nullptr || this->parent == nullptr)
+            return nullptr;
+
+        if (this->isLeftChild())
+            return this->parent->right;
+        return this->parent->left;
     }
 
-    static bool isBlack(Node<T> *node)
+    /**
+     * @brief Returns this node's uncle if it exists
+     * 
+     * @return Node* This node's uncle. nullptr if it does not exists
+     */
+    Node* uncle()
     {
-        if (node == nullptr)
-            return true;
+        Node* grandparent = this->grandparent();
+        if (grandparent == nullptr)
+            return nullptr;
         
-        return node->black;
+        if (this->parent->isLeftChild())
+            return grandparent->right;
+        return grandparent->left;
     }
 };
 
-template <typename T>
 class RBTree
 {
-    // ========================= PUBLIC =========================
 public:
-    /**
-     * @brief Construct a new Red-Black Tree object
-     *
-     */
-    RBTree() { this->root = nullptr; };
+    bool contains(int value);
+    void insert(int value);
+    void remove(int value);
+    void print();
+    void inOrderPrint();
+    void preOrderPrint();
+    void postOrderPrint();
 
-    /**
-     * @brief Inserts a new item into the red-black tree
-     *
-     * @tparam T A generic type that must form a total order
-     * @param data The value of the data
-     */
-    void insert(T data)
-    {
-        Node<T> *newNode = new Node<T>(data);
-        if (this->root == nullptr)
-        {
-            this->root = newNode;
-            this->root->black = true;
-            return;
-        }
+    std::vector<int> inOrderVec();
+    std::vector<int> preOrderVec();
+    std::vector<int> postOrderVec();
 
-        this->insert(this->root, newNode);
-    }
-    
-    
-    void remove(T data)
-    {
-        Node<T> *toRemove = this->search(data);
-
-        if (toRemove == nullptr)
-            return;
-
-        Node<T> *successor;
-        
-        if (toRemove->right == nullptr || toRemove->left == nullptr)
-            successor = toRemove;
-        else
-            successor = this->successor(toRemove);
-
-        if (successor->parent->right == successor)
-        {
-            successor->parent->right = successor->left;
-            if (successor->left != nullptr)
-                successor->left->parent = successor->parent;
-        }
-        else
-        {
-            successor->parent->left = successor->right;
-            if (successor->right != nullptr)
-                successor->right->parent = successor->parent;
-        }
-
-        toRemove->data = successor->data;
-        this->correctAfterDelete(successor);
-        delete successor;
-    }
-
-    /**
-     * @brief Determines the height (depth) of the tree
-     *
-     * @return unsigned long The height (depth) of the tree
-     */
-    unsigned long height()
-    {
-        if (this->root == nullptr) // empty tree has 0 height
-            return 0;
-
-        return height(this->root) - 1; // start height recursion
-    }
-
-    /**
-     * @brief Recursively prints the tree in a tree structure with some colours
-     * 
-     */
-    void print()
-    {
-        print(this->root, "", false);
-    }
-
-    // ========================= PRIVATE =========================
 private:
-    Node<T> *root;
+    Node* root = nullptr;
 
-    void print(Node<T> *node)
-    {
-        if (node == nullptr)
-        {
-            std::cout << "NULL\n";
-            return;
-        }
-        std::cout << node->data << "\n";
-        
-        print(node->right);
-        print(node->left);
-    }
+    void insert(Node *node);
+    void insertFix(Node *node);
+    void leftRotate(Node *node);
+    void rightRotate(Node *node);
 
-    /**
-     * @brief Recursively inserts the node in its correct position in the tree
-     *
-     * @tparam T A generic type that must form a total order
-     * @param root The possibly parent tree to the new node
-     * @param newNode The newly created, to-be-placed node
-     */
-    void insert(Node<T> *root, Node<T> *newNode)
-    {
-        if (newNode->data < root->data)
-        {
-            if (root->right == nullptr)
-            {
-                root->right = newNode;
-                newNode->parent = root;
-            }
-            else
-            {
-                insert(root->right, newNode);
-            }
-        }
-        else
-        {
-            if (root->left == nullptr)
-            {
-                root->left = newNode;
-                newNode->parent = root;
-            }
-            else
-            {
-                insert(root->left, newNode);
-            }
-        }
+    void remove(Node *node);
+    void removeFix(Node *node);
+    Node* successor(Node *node);
+    Node* search(int value);
 
-        checkColor(newNode);
-    }
+    void print(Node *current, std::string prefix, bool isLeft);
+    void inOrderPrint(Node *node);
+    void preOrderPrint(Node *node);
+    void postOrderPrint(Node *node);
 
-    /**
-     * @brief Recursively checks and corrects and colour violation
-     *
-     * @tparam T A generic type that must form a total order
-     * @param node The node at which this method checks if any violation are caused
-     */
-    void checkColor(Node<T> *node)
-    {
-        if (node == this->root)
-        {
-            root->black = true;
-            return;
-        }
-
-        if (node->grandparent() != nullptr && !node->black && !node->parent->black)
-            correctTree(node);
-
-        checkColor(node->parent);
-    }
-
-    /**
-     * @brief Corrects the tree by either doing a colour flip or rotation, all based on the uncle's colour
-     *
-     * @tparam T A generic type that must form a total order
-     * @param node The node at which a violation is to be corrected
-     */
-    void correctTree(Node<T> *node)
-    {
-        Node<T> *grandparent = node->grandparent();
-        Node<T> *uncle;
-        if (node->parent == grandparent->left)
-            uncle = grandparent->right;
-        else
-            uncle = grandparent->left;
-
-        if (uncle == nullptr || uncle->black) // null counts as black
-            rotate(node);
-        else if (uncle != nullptr)
-            uncle->black = true;
-
-        grandparent->black = false;
-        node->parent->black = true;
-    }
-
-    /**
-     * @brief Rotates the tree based on a given node's and its relative's relations
-     *
-     * @tparam T A generic type that must form a total order
-     * @param node The node at which a violation is fixed through rotation of some kind based on relations
-     */
-    void rotate(Node<T> *node)
-    {
-        Node<T> *grandparent = node->grandparent();
-        bool parentIsLeftChild = (grandparent->left == node->parent);
-
-        if (node->parent->left == node)
-        {
-            if (parentIsLeftChild) // Violation in left left child
-            {
-                rightRotate(grandparent);
-                node->black = false;
-                node->parent->black = true;
-                if (node->parent->right != nullptr)
-                    node->parent->right->black = false;
-
-                return;
-            }
-            // Violation in left right child
-            rightLeftRotate(grandparent);
-            node->black = true;
-            node->right->black = false;
-            node->left->black = false;
-            return;
-        }
-        else
-        {
-            if (!parentIsLeftChild) // Violation in right right child
-            {
-                leftRotate(grandparent);
-                node->black = false;
-                node->parent->black = true;
-                if (node->parent->right != nullptr)
-                    node->parent->right->black = false;
-
-                return;
-            }
-            // Violation in left right child
-            leftRightRotate(grandparent);
-            node->black = true;
-            node->right->black = false;
-            node->left->black = false;
-            return;
-        }
-    }
-
-    /**
-     * @brief Rotates a node with a left rotation, making its left child the median. Fixes a violation
-     *
-     * @param node The grandparent of the node that caused a violation
-     */
-    void leftRotate(Node<T> *node)
-    {
-        Node<T> *temp = node->right;
-        node->right = temp->left;
-        if (node->right != nullptr)
-            node->right->parent = node;
-
-        if (node->parent == nullptr) // node is root
-        {
-            this->root = temp;
-            temp->parent = nullptr;
-        }
-        else
-        {
-            temp->parent = node->parent;
-            if (node->parent->left = node) // node is left child
-                temp->parent->left = temp;
-            else
-                temp->parent->right = temp;
-        }
-
-        temp->left = node;
-        node->parent = temp;
-    }
-
-    /**
-     * @brief Rotates a node with a right rotation, making it right child the median. Fixes a violation
-     *
-     * @param node The grandparent of the node that caused a violation
-     */
-    void rightRotate(Node<T> *node)
-    {
-        Node<T> *temp = node->left;
-        node->left = temp->right;
-        if (node->left != nullptr)
-            node->left->parent = node;
-
-        if (node->parent == nullptr) // node is root
-        {
-            this->root = temp;
-            temp->parent = nullptr;
-        }
-        else
-        {
-            temp->parent = node->parent;
-            if (node->parent->left = node) // node is left child
-                temp->parent->left = temp;
-            else
-                temp->parent->right = temp;
-        }
-
-        temp->right = node;
-        node->parent = temp;
-    }
-
-    /**
-     * @brief Rotates a node's left child to the left then rotates the node with a right rotation to fix a violation
-     *
-     * @param node The grandparent of the node that caused a violation
-     */
-    void leftRightRotate(Node<T> *node)
-    {
-        leftRotate(node->left); // Make violator to median node
-        rightRotate(node);      // Rotate to make Median the parent
-    }
-
-    /**
-     * @brief Rotates a node's right child with a right rotation then rotates the node with a left rotation to fix a violation
-     *
-     * @param node The grandparent of the node that caused a violation
-     */
-    void rightLeftRotate(Node<T> *node)
-    {
-        rightRotate(node->right); // Make violator to median node
-        leftRotate(node);         // Rotate to make Median the parent
-    }
-
-    /**
-     * @brief Takes a node and recursively determines the height of its subtrees
-     *
-     * @param node The node whose subtrees height is to be returned
-     * @return unsigned long The height of a given nodes subtrees
-     */
-    unsigned long height(Node<T> *node)
-    {
-        if (node == nullptr) // reached an end
-            return 0;
-
-        return std::max( // Find height of left and right subtree and return which is bigger
-            height(node->left) + 1,
-            height(node->right) + 1);
-    }
-
-    /**
-     * @brief Returns a pointer to the node containing a given value. nullptr if not found
-     * 
-     * @param value The value to search for
-     * @return Node<T>* Pointer to a node with the given value.
-     */
-    Node<T>* search(T value)
-    {
-        Node<T> *root = this->root;
-
-        while (root != nullptr)
-        {
-            if (value < root->data)
-                root = root->right;
-            else if (value > root->data)
-                root = root->left; 
-            else
-                return root;
-        }
-
-        return nullptr;
-    }
-
-    /**
-     * @brief Finds the the successor to a given node. A node that can replace this node maintaining the order
-     * 
-     * @param node The node to search the successor for
-     * @return Node<T>* The successor for the given node
-     */
-    Node<T>* successor(Node<T> *node)
-    {   
-        if (node->right != nullptr)
-        {
-            node = node->right;
-            while (node->left != nullptr)
-                node = node->left;
-            return node;
-        }
-        else if (node->left != nullptr)
-        {
-            node = node->left;
-            while (node->right != nullptr)
-                node = node->right;
-
-            return node;
-        }
-
-        return nullptr;
-    }
-
-    /**
-     * @brief Corrects any violation in the tree after deletion
-     * 
-     * @param node Node where the deletion happens
-     */
-    void correctAfterDelete(Node<T>* node)
-    {
-        // This should cover all the cases where violations might occur
-
-        if (node == root) // Root reached
-        {
-            node->black = true;
-            return;
-        }
-
-        Node<T> *sibling = nullptr;
-
-        if (node->parent->right == node)
-            sibling = node->parent->left;
-        else 
-            sibling = node->parent->right;
-
-        if (!Node<T>::isBlack(sibling)) // Red sibling: fix through color change and rotation
-        {
-            sibling->black = true;
-            node->parent->black = false;
-
-            if (node->parent->left == node)
-                leftRotate(node->parent);
-            else
-                rightRotate(node->parent);
-
-            if (node->parent->right == node)
-                sibling = node->parent->left;
-            else 
-                sibling = node->parent->right;
-        }
-
-        // Sibling is black with black children
-        if (Node<T>::isBlack(sibling->left) && Node<T>::isBlack(sibling->right))
-        {
-            sibling->black = false;
-
-            if (node->parent->black == false)
-                node->parent->black = true;
-            else
-                correctAfterDelete(node->parent);
-        }
-
-        // Sibling is black with min 1 red child
-        bool isLeftChild = node->parent->left == node;
-        if (isLeftChild && Node<T>::isBlack(sibling->right))
-        {
-            sibling->left->black = true;
-            sibling->black = false;
-            rightRotate(sibling);
-            sibling = node->parent->right;
-        }
-        else if (!isLeftChild && Node<T>::isBlack(sibling->left))
-        {
-            sibling->right->black = true;
-            sibling->black = false;
-            leftRotate(sibling);
-            sibling = node->parent->left;
-        }
-
-        // Rotate parent appropiately and fix colours
-        sibling->black = node->parent->black;
-        node->parent->black = true;
-        if (isLeftChild)
-        {
-            sibling->right->black = true;
-            leftRotate(node->parent);
-        }
-        else
-        {
-            sibling->left->black = true;
-            rightRotate(node->parent);
-        }
-    }
-
-    /**
-     * @brief Recursively prints the tree with "some" structure and colour included
-     * 
-     * @param node Current node to print
-     * @param prefix Prefix of this node (depends on its position). Start with empty string, it will determinate what to use on its own
-     * @param isLeft Boolean to tell the printer if this node is a left child or not. Changes the way it is printed
-     */
-    void print(Node<T> *node, const std::string &prefix, bool isLeft)
-    {
-        if (node != nullptr)
-        {
-            std::cout << prefix << (isLeft ? "|---" : "\\---") << (node->black ? ANSI_BLACK_TEXT : ANSI_RED_TEXT) << node->data << ANSI_RESET << std::endl;
-            print(node->left, prefix + (isLeft ? "|   " : "    "), true);
-            print(node->right, prefix + (isLeft ? "|   " : "    "), false);
-        }
-    }
+    std::vector<int> inOrderAsArray(Node *node, std::vector<int> *values);
+    std::vector<int> postOrderAsArray(Node *node, std::vector<int> *values);
+    std::vector<int> preOrderAsArray(Node *node, std::vector<int> *values);
 };
+
+/**
+ * @brief Returns true if the given value is in the tree
+ * 
+ * @param value The value to search for
+ * @return true The value is in the tree
+ * @return false The value is not in the tree
+ */
+bool RBTree::contains(int value)
+{
+    return this->search(value) != nullptr;
+}
+
+/**
+ * @brief Inserts the given value into the tree
+ * 
+ * @param value The value to insert
+ */
+void RBTree::insert(int value)
+{
+    Node *newNode = new Node(value);
+
+    if (this->root == nullptr) // Root is empty. Add new value to root
+    {
+        this->root = newNode;
+        this->root->black = true;
+        return;
+    }
+
+    this->insert(newNode);
+}
+
+/**
+ * @brief Inserts the given node into its appropiate position in the tree
+ * 
+ * @param node The node to insert
+ */
+void RBTree::insert(Node *node)
+{
+    Node *searcher = this->root, // Searches forward
+         *tail = searcher; // Saves searcher's last position
+
+    // Search for next empty correct position
+    while (searcher != nullptr)
+    {
+        tail = searcher;
+        if (node->data > searcher->data)
+            searcher = searcher->right;
+        else
+            searcher = searcher->left;
+    }
+
+    // Choose right child according to size
+    if (node->data > tail->data)
+        tail->right = node;
+    else
+        tail->left = node;
+
+    node->parent = tail;
+
+    this->insertFix(node); // Fix any violations
+}
+
+/**
+ * @brief Fixes any violations by iterating up the tree checking for uncle's color and flipping colours or rotating appropriately
+ * 
+ * @param node The node to start the fix process from
+ */
+void RBTree::insertFix(Node *node)
+{
+    // Check for double red
+    while (!node->parent->isBlack())
+    {
+        if (node->parent->isLeftChild())
+        {
+            if (!node->uncle()->isBlack()) // If violated need to colour flip
+            {
+                node->parent->black = true;
+                node->uncle()->black = true;
+                node->grandparent()->black = false;
+                node = node->grandparent();
+            }
+            else // If violated, Rotate. left left = right. Left right = left right
+            {
+                if (!node->isLeftChild())
+                {
+                    node = node->parent;
+                    this->leftRotate(node);
+                }
+
+                node->parent->black = true;
+                node->grandparent()->black = false;
+                rightRotate(node->grandparent());
+            }
+        }
+        else // same as above but handles right child
+        {
+            if (!node->uncle()->isBlack()) // If violated, need to colour flip
+            {
+                node->parent->black = true;
+                node->grandparent()->left->black = true;
+                node->grandparent()->black = false;
+                node = node->grandparent();
+            }
+            else // If violated, Rotate. right right = left. right left = right left
+            {
+                if (node->isLeftChild())
+                {
+                    node = node->parent;
+                    rightRotate(node);
+                }
+
+                node->parent->black = true;
+                node->grandparent()->black = false;
+                leftRotate(node->grandparent());
+            }   
+        }
+    }
+    this->root->black = true; // Root is always black
+}
+
+/**
+ * @brief Do a left rotation on a given node
+ * 
+ * @param node Node to rotate
+ */
+void RBTree::leftRotate(Node *node)
+{
+    Node* child = node->right;
+
+    node->right = child->left;
+    if (child->left != nullptr)
+        child->left->parent = node;
+
+    child->parent = node->parent;
+    if (child->parent == nullptr)
+        this->root = child;
+    else if (node->isLeftChild())
+        node->parent->left = child;
+    else
+        node->parent->right = child;
+
+    child->left = node;
+    node->parent = child;
+}
+
+/**
+ * @brief Do a right rotation on a given node
+ * 
+ * @param node Node to rotate
+ */
+void RBTree::rightRotate(Node *node)
+{
+    Node *child = node->left;
+
+    node->left = child->right;
+    if (child->right != nullptr)
+        child->right->parent = node;
+
+    child->parent = node->parent;
+    if (child->parent == nullptr)
+        this->root = child;
+    else if (node->isLeftChild())
+        node->parent->left = child;
+    else
+        node->parent->right = child;
+
+    child->right = node;
+    node->parent = child;
+}
+
+/**
+ * @brief Remove a given value from the tree (THIS FEATURE IS BUGGY)
+ * 
+ * @param value The value to remove
+ */
+void RBTree::remove(int value)
+{
+    Node* toRemove = this->search(value);
+    if (toRemove != nullptr)
+        remove(toRemove);
+}
+
+/**
+ * @brief Removes the given node from the tree (THIS FEATURE IS BUGGY)
+ * 
+ * @param node The node to remove
+ */
+void RBTree::remove(Node* node)
+{
+    Node* toBeRemoved = node;
+    if (node->right == nullptr && node->left == nullptr) // is leaf
+    {
+        if (node != this->root)
+        {
+            // Removes the node and cut it from its parent
+            if (node->isLeftChild())
+                node->parent->left = nullptr;
+            else
+                node->parent->right = nullptr;
+        }
+        else
+            root = nullptr;
+
+        delete node;
+    }
+    else if (node->left != nullptr && node->right != nullptr) // two children
+    {
+        // Find best value to replace current and then transplant values and delete the node that was transplanted at the bottom
+        Node *successor = this->successor(node->right);
+        int successorsData = successor->data;
+        remove(successor);
+        node->data = successorsData;
+    }
+    else // only 1 child
+    {
+        // Deletes the value with respect to the nullptr child
+
+        Node *child = nullptr;
+        if (node->right != nullptr)
+            child = node->right;
+        else
+            child = node->left;
+
+        if (node != this->root)
+        {
+            if (node->isLeftChild())
+                node->parent->left = child;
+            else
+                node->parent->right = child;
+        }
+        else
+            this->root = child;
+
+        delete node;
+    }
+
+    removeFix(node); // Fix violations (This breaks the tree :( )
+}
+
+/**
+ * @brief Fixes any violations in the tree after a value removal by checking iterating upwards checking siblings and nephews and doing rotations and colour flips appropriately.
+ * 
+ * @param node The node which the deletion started
+ */
+void RBTree::removeFix(Node *node)
+{
+    Node* sibling;
+
+    while (node != this->root && node->isBlack())
+    {
+        if (node->isLeftChild())
+        {
+            // Check sibling's colours and rotate and flip based on it and its relation
+
+            sibling = node->sibling();
+
+            if (!sibling->isBlack())
+            {
+                sibling->black = true;
+                node->parent->black = false;
+                leftRotate(node->parent);
+                sibling = node->parent->right;
+            }
+
+            if (sibling != nullptr && sibling->left->isBlack() && sibling->right->isBlack())
+            {
+                sibling->black = false;
+                node->parent->black = true;
+                node = node->parent;
+            }
+            else
+            {
+                if (sibling != nullptr && sibling->right->isBlack())
+                {
+                    sibling->black = false;
+                    sibling->left->black = true;
+                    rightRotate(sibling);
+                    sibling = node->parent->right;
+                }
+
+                if (sibling != nullptr)
+                {
+                    sibling->black = node->parent->black;
+                    sibling->right->black = true;
+                }
+                node->parent->black = true;
+                leftRotate(node->parent);
+                node = this->root;
+            }
+        }
+        else // Same as above but does it for the right child
+        {
+            sibling = node->sibling();
+
+            if (!sibling->isBlack())
+            {
+                sibling->black = true;
+                node->parent->black = true;
+                rightRotate(node->parent);
+                sibling = node->parent->left;
+            }
+
+            if (sibling != nullptr && sibling->left->isBlack() && sibling->right->isBlack())
+            {
+                sibling->black = false;
+                sibling->right->black = true;
+                leftRotate(sibling);
+                sibling = node->parent->left;
+            }
+
+            if (sibling != nullptr) 
+            {
+                sibling->black = node->parent->black;
+                sibling->left->black = true;
+            }
+            node->parent->black = true;
+            rightRotate(node->parent);
+            node = this->root;
+        }
+        
+    }
+    node->black = true;
+}
+
+/**
+ * @brief Finds the in order successor of a given node
+ * 
+ * @param node The node to find successor for
+ * @return Node* The successor
+ */
+Node* RBTree::successor(Node *node)
+{
+    while (node->left != nullptr)
+        node = node->left;
+
+    return node;
+}
+
+/**
+ * @brief Searches the tree for a given a value and returns its node if it exists
+ * 
+ * @param value The value to search for
+ * @return Node* The node containing the value. nullptr if it does not exists
+ */
+Node* RBTree::search(int value)
+{
+    Node *searcher = this->root;
+
+    // Iterate downwards comparing until finding the value.
+    while (searcher != nullptr)
+    {   
+        if (value > searcher->data)
+            searcher = searcher->right;
+        else if (value < searcher->data)
+            searcher = searcher->left;
+        else
+            return searcher;
+    }
+    return nullptr; // not found
+}
+
+/**
+ * @brief Recursivly prints the values IN ORDER
+ * 
+ * @param node Node for recrusion
+ */
+void RBTree::inOrderPrint(Node *node)
+{
+    if (node == nullptr)
+        return;
+
+    inOrderPrint(node->left);
+    std::cout << node->data << " ";
+    inOrderPrint(node->right);
+}
+
+/**
+ * @brief Recursivly prints the values in PRE ORDER
+ * 
+ * @param node Node for recrusion
+ */
+void RBTree::preOrderPrint(Node *node)
+{
+    if (node == nullptr)
+        return;
+    
+    std::cout << node->data << " ";
+    preOrderPrint(node->left);
+    preOrderPrint(node->right);
+}
+
+/**
+ * @brief Recursivly prints the values in POST ORDER
+ * 
+ * @param node Node for recrusion
+ */
+void RBTree::postOrderPrint(Node *node)
+{
+    if (node == nullptr)
+        return;
+    
+    postOrderPrint(node->left);
+    postOrderPrint(node->right);
+    std::cout << node->data << " ";
+}
+
+/**
+ * @brief Recursivly prints the values IN ORDER
+ * 
+ */
+void RBTree::inOrderPrint()
+{
+    std::cout << "IN ORDER:\t";
+    inOrderPrint(this->root);
+    std::cout << std::endl;
+}
+
+/**
+ * @brief Recursivly prints the values in POST ORDER
+ * 
+ */
+void RBTree::postOrderPrint()
+{
+    std::cout << "POST ORDER:\t";
+    postOrderPrint(this->root);
+    std::cout << std::endl;
+}
+
+/**
+ * @brief Recursivly prints the values in PRE ORDER
+ * 
+ */
+void RBTree::preOrderPrint()
+{
+    std::cout << "PRE ORDER:\t";
+    preOrderPrint(this->root);
+    std::cout << std::endl;
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three in PRE ORDER
+ * 
+ * @param node Current node to add
+ * @param values Vector of values
+ * @return std::vector<int> Vector of values
+ */
+std::vector<int> RBTree::preOrderAsArray(Node *node, std::vector<int> *values)
+{
+    if (node == nullptr)
+        return *values;
+    
+    values->push_back(node->data);
+    preOrderAsArray(node->left, values);
+    preOrderAsArray(node->right, values);
+
+    return *values;
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three IN ORDER
+ * 
+ * @param node Current node to add
+ * @param values Vector of values
+ * @return std::vector<int> Vector of values
+ */
+std::vector<int> RBTree::inOrderAsArray(Node *node, std::vector<int> *values)
+{
+    if (node == nullptr)
+        return *values;
+    
+    inOrderAsArray(node->left, values);
+    values->push_back(node->data);
+    inOrderAsArray(node->right, values);
+
+    return *values;
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three in in POST ORDER
+ * 
+ * @param node Current node to add
+ * @param values Vector of values
+ * @return std::vector<int> Vector of values
+ */
+std::vector<int> RBTree::postOrderAsArray(Node *node, std::vector<int> *values)
+{
+    if (node == nullptr)
+        return *values;
+    
+    postOrderAsArray(node->left, values);
+    postOrderAsArray(node->right, values);
+    values->push_back(node->data);
+
+    return *values;
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three IN ORDER
+ * 
+ * @return std::vector<int> IN ORDER vector
+ */
+std::vector<int> RBTree::inOrderVec()
+{
+    auto vec = std::vector<int>();
+    return inOrderAsArray(this->root, &vec);
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three in in PRE ORDER
+ * 
+ * @return std::vector<int> PRE ORDER vector
+ */
+std::vector<int> RBTree::preOrderVec()
+{
+    auto vec = std::vector<int>();
+    return preOrderAsArray(this->root, &vec);
+}
+
+/**
+ * @brief Recursively fill a returns a vector filled with the values of three in in POST ORDER
+ * 
+ * @return std::vector<int> POST ORDER vector
+ */
+std::vector<int> RBTree::postOrderVec()
+{
+    auto vec = std::vector<int>();
+    return postOrderAsArray(this->root, &vec);
+}
+
+
+/**
+ * @brief Recursivly prints the values in a fancy way
+ * 
+ */
+void RBTree::print()
+{
+    this->print(this->root, "", false);
+}
+
+/**
+ * @brief Recursivly prints the values in a fancy way (THIS METHOD IS NOT MINE. It most probably is from "VasiliNovikov")
+ * 
+ * @param current The current node to print and recurse from
+ * @param prefix Prefix for the printing (Handles by the method)
+ * @param isLeft If the node is left (Handled by the method)
+ */
+void RBTree::print(Node *current, std::string prefix, bool isLeft)
+{
+    if (current != nullptr)
+    {
+        std::cout << prefix << (isLeft ? "|---" : "\\---") << (current->black ? ANSI_BLACK_TEXT : ANSI_RED_TEXT) << current->data << ANSI_RESET << std::endl;
+        print(current->left, prefix + (isLeft ? "|   " : "    "), true);
+        print(current->right, prefix + (isLeft ? "|   " : "    "), false);
+    }
+}
